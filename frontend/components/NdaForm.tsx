@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { NdaData, Party } from "@/lib/nda";
 
 interface Props {
@@ -84,6 +85,102 @@ function PartyFields({
   );
 }
 
+/**
+ * A "duration" choice used by both the MNDA Term and the Term of
+ * Confidentiality: a radio for "a fixed number of years" (with an adjacent
+ * number input) and a radio for an open-ended alternative.
+ *
+ * The number field keeps its own draft string so clearing it mid-edit does not
+ * snap the value back to 1; the value is normalized (clamped to >= 1) on blur.
+ * The number input carries its own aria-label rather than sharing the radio's
+ * label, so assistive tech announces it correctly.
+ */
+function TermChoice({
+  legend,
+  name,
+  isYears,
+  onSelectYears,
+  onSelectAlternative,
+  years,
+  onYearsChange,
+  yearsPrefix,
+  yearsSuffix,
+  yearsRadioLabel,
+  yearsInputLabel,
+  alternativeLabel,
+}: {
+  legend: string;
+  name: string;
+  isYears: boolean;
+  onSelectYears: () => void;
+  onSelectAlternative: () => void;
+  years: number;
+  onYearsChange: (years: number) => void;
+  yearsPrefix?: string;
+  yearsSuffix: string;
+  yearsRadioLabel: string;
+  yearsInputLabel: string;
+  alternativeLabel: string;
+}) {
+  const [draft, setDraft] = useState(String(years));
+
+  // Keep the draft in sync when the value changes from outside this input.
+  useEffect(() => {
+    setDraft(String(years));
+  }, [years]);
+
+  const handleDraft = (raw: string) => {
+    setDraft(raw);
+    const n = Number.parseInt(raw, 10);
+    if (!Number.isNaN(n) && n >= 1) onYearsChange(n);
+  };
+
+  const normalizeOnBlur = () => {
+    const n = Number.parseInt(draft, 10);
+    const clamped = Number.isNaN(n) || n < 1 ? 1 : n;
+    setDraft(String(clamped));
+    onYearsChange(clamped);
+  };
+
+  return (
+    <fieldset className="space-y-2">
+      <legend className={labelClass}>{legend}</legend>
+      <div className="flex flex-wrap items-center gap-4 text-sm">
+        <div className="flex items-center gap-2">
+          <input
+            type="radio"
+            name={name}
+            aria-label={yearsRadioLabel}
+            checked={isYears}
+            onChange={onSelectYears}
+          />
+          {yearsPrefix && <span>{yearsPrefix}</span>}
+          <input
+            type="number"
+            min={1}
+            aria-label={yearsInputLabel}
+            className="w-16 rounded border border-slate-300 px-2 py-1"
+            value={draft}
+            disabled={!isYears}
+            onChange={(e) => handleDraft(e.target.value)}
+            onBlur={normalizeOnBlur}
+          />
+          <span>{yearsSuffix}</span>
+        </div>
+        <label className="flex items-center gap-2">
+          <input
+            type="radio"
+            name={name}
+            checked={!isYears}
+            onChange={onSelectAlternative}
+          />
+          {alternativeLabel}
+        </label>
+      </div>
+    </fieldset>
+  );
+}
+
 export default function NdaForm({ data, onChange }: Props) {
   const set =
     <K extends keyof NdaData>(key: K) =>
@@ -128,78 +225,34 @@ export default function NdaForm({ data, onChange }: Props) {
         />
       </div>
 
-      {/* MNDA Term */}
-      <div className="space-y-2">
-        <span className={labelClass}>MNDA term</span>
-        <div className="flex flex-wrap items-center gap-4 text-sm">
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              name="termKind"
-              checked={data.termKind === "expires"}
-              onChange={() => set("termKind")("expires")}
-            />
-            Expires
-            <input
-              type="number"
-              min={1}
-              className="w-16 rounded border border-slate-300 px-2 py-1"
-              value={data.termYears}
-              disabled={data.termKind !== "expires"}
-              onChange={(e) =>
-                set("termYears")(Math.max(1, Number(e.target.value) || 1))
-              }
-            />
-            year(s) from the Effective Date
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              name="termKind"
-              checked={data.termKind === "untilTerminated"}
-              onChange={() => set("termKind")("untilTerminated")}
-            />
-            Continues until terminated
-          </label>
-        </div>
-      </div>
+      <TermChoice
+        legend="MNDA term"
+        name="termKind"
+        isYears={data.termKind === "expires"}
+        onSelectYears={() => set("termKind")("expires")}
+        onSelectAlternative={() => set("termKind")("untilTerminated")}
+        years={data.termYears}
+        onYearsChange={set("termYears")}
+        yearsPrefix="Expires"
+        yearsSuffix="year(s) from the Effective Date"
+        yearsRadioLabel="MNDA term expires after a fixed number of years"
+        yearsInputLabel="Number of MNDA term years"
+        alternativeLabel="Continues until terminated"
+      />
 
-      {/* Term of Confidentiality */}
-      <div className="space-y-2">
-        <span className={labelClass}>Term of confidentiality</span>
-        <div className="flex flex-wrap items-center gap-4 text-sm">
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              name="confidentialityKind"
-              checked={data.confidentialityKind === "years"}
-              onChange={() => set("confidentialityKind")("years")}
-            />
-            <input
-              type="number"
-              min={1}
-              className="w-16 rounded border border-slate-300 px-2 py-1"
-              value={data.confidentialityYears}
-              disabled={data.confidentialityKind !== "years"}
-              onChange={(e) =>
-                set("confidentialityYears")(
-                  Math.max(1, Number(e.target.value) || 1),
-                )
-              }
-            />
-            year(s) from the Effective Date
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              name="confidentialityKind"
-              checked={data.confidentialityKind === "perpetuity"}
-              onChange={() => set("confidentialityKind")("perpetuity")}
-            />
-            In perpetuity
-          </label>
-        </div>
-      </div>
+      <TermChoice
+        legend="Term of confidentiality"
+        name="confidentialityKind"
+        isYears={data.confidentialityKind === "years"}
+        onSelectYears={() => set("confidentialityKind")("years")}
+        onSelectAlternative={() => set("confidentialityKind")("perpetuity")}
+        years={data.confidentialityYears}
+        onYearsChange={set("confidentialityYears")}
+        yearsSuffix="year(s) from the Effective Date"
+        yearsRadioLabel="Confidentiality lasts a fixed number of years"
+        yearsInputLabel="Number of confidentiality years"
+        alternativeLabel="In perpetuity"
+      />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <TextField
