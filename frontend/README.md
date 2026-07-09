@@ -30,6 +30,20 @@ The **Download PDF** button calls `window.print()`. A print stylesheet
 (`app/globals.css`) hides the app chrome and form so only the generated document
 (`.nda-document`) is printed — the user saves it as a PDF from the print dialog.
 
+## Testing
+
+```bash
+npm run lint     # ESLint (next/core-web-vitals)
+npm test         # Vitest unit tests for lib/nda.ts helpers
+npx playwright test   # End-to-end tests (form → preview, term options, PDF export)
+```
+
+Unit tests live next to the code (`lib/nda.test.ts`); Playwright specs live in
+`e2e/`. The e2e suite drives a real browser to confirm the form fills the
+preview, the term/confidentiality options render correctly, editing the year
+fields produces the right value, and the Download PDF path yields a
+document-only PDF.
+
 ## Structure
 
 | Path | Purpose |
