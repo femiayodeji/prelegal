@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Print styles: when the user chooses "Download PDF" (which triggers the
+ * browser print dialog), hide the app chrome and the form so only the
+ * generated NDA document is printed. The document itself is marked with the
+ * `.nda-document` class and `print:` utilities handle most of the layout.
+ */
+@media print {
+  /* Hide everything not part of the printable document. */
+  body * {
+    visibility: hidden;
+  }
+
+  .nda-document,
+  .nda-document * {
+    visibility: visible;
+  }
+
+  .nda-document {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+
+  /* Avoid breaking a clause awkwardly across pages. */
+  .nda-clause {
+    break-inside: avoid;
+  }
+
+  @page {
+    margin: 0.75in;
+  }
+}
