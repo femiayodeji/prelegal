@@ -19,10 +19,10 @@ test("signing in brings the user into the platform", async ({ page }) => {
   await page.getByLabel("Password").fill("anything");
   await page.getByRole("button", { name: "Sign in" }).click();
 
-  // Lands on the platform shell with the NDA workspace inside it.
+  // Lands on the platform shell with the document workspace inside it.
   await expect(page).toHaveURL(/\/$/);
   await expect(
-    page.getByRole("heading", { name: "Mutual NDA Creator" }),
+    page.getByRole("heading", { name: "Legal Document Creator" }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
 });

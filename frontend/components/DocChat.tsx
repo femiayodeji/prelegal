@@ -2,28 +2,29 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ChatMessage, sendChat } from "@/lib/chat";
-import { NdaData } from "@/lib/nda";
+import { DocumentState } from "@/lib/documents";
 
 interface Props {
-  data: NdaData;
-  onChange: (data: NdaData) => void;
+  doc: DocumentState;
+  onChange: (doc: DocumentState) => void;
 }
 
-// The assistant opens the conversation with a fixed greeting so the user has
-// something to respond to without waiting on an LLM round-trip at page load.
+// The assistant opens with a fixed greeting so the user has something to respond
+// to without waiting on an LLM round-trip at page load.
 const GREETING: ChatMessage = {
   role: "assistant",
   content:
-    "Hi! I'll help you put together your Mutual NDA. To start, who are the " +
-    "two companies entering into this agreement?",
+    "Hi! I can help you draft a legal agreement — an NDA, a cloud service or " +
+    "professional services agreement, a DPA, and more. What kind of document " +
+    "do you need?",
 };
 
 /**
- * The conversational way to fill in the Mutual NDA. Holds the chat transcript,
- * sends each user turn to the backend, and lifts the returned document state up
- * to the workspace so the live preview stays in sync. Replaces the old form.
+ * The conversational way to build a document. Holds the chat transcript, sends
+ * each user turn to the backend, and lifts the returned document state up to the
+ * workspace so the live preview stays in sync.
  */
-export default function NdaChat({ data, onChange }: Props) {
+export default function DocChat({ doc, onChange }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([GREETING]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -46,9 +47,9 @@ export default function NdaChat({ data, onChange }: Props) {
     setLoading(true);
 
     try {
-      const result = await sendChat(history, data);
+      const result = await sendChat(history, doc);
       setMessages([...history, { role: "assistant", content: result.reply }]);
-      onChange(result.data);
+      onChange(result.doc);
     } catch {
       setError("Something went wrong reaching the assistant. Please try again.");
       // Drop the optimistic user turn so they can resend it.

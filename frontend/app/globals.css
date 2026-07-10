@@ -3,10 +3,47 @@
 @tailwind utilities;
 
 /*
+ * Rendered Standard Terms. Templates are markdown with inline `<span>` markers
+ * for section headings and highlighted fill-in "Variables". Give those markers
+ * sensible typography and make the highlighted Variables visually distinct.
+ */
+.legal-terms {
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+.legal-terms ol,
+.legal-terms ul {
+  margin-left: 1.25rem;
+  margin-bottom: 0.75rem;
+  list-style: decimal;
+}
+.legal-terms li {
+  margin-bottom: 0.5rem;
+}
+.legal-terms p {
+  margin-bottom: 0.75rem;
+}
+.legal-terms .header_2 {
+  font-weight: 700;
+}
+.legal-terms .header_3 {
+  font-weight: 600;
+}
+/* Fill-in Variables — values are supplied on the cover page. */
+.legal-terms .coverpage_link,
+.legal-terms .orderform_link,
+.legal-terms .keyterms_link {
+  background: #fdf3d3;
+  color: #7a5c00;
+  padding: 0 0.15em;
+  border-radius: 2px;
+}
+
+/*
  * Print styles: when the user chooses "Download PDF" (which triggers the
- * browser print dialog), hide the app chrome and the form so only the
- * generated NDA document is printed. The document itself is marked with the
- * `.nda-document` class and `print:` utilities handle most of the layout.
+ * browser print dialog), hide the app chrome and the chat so only the
+ * generated document is printed. The document itself is marked with the
+ * `.legal-document` class and `print:` utilities handle most of the layout.
  */
 @media print {
   /* Hide everything not part of the printable document. */
@@ -14,12 +51,12 @@
     visibility: hidden;
   }
 
-  .nda-document,
-  .nda-document * {
+  .legal-document,
+  .legal-document * {
     visibility: visible;
   }
 
-  .nda-document {
+  .legal-document {
     position: absolute;
     left: 0;
     top: 0;
@@ -30,8 +67,17 @@
   }
 
   /* Avoid breaking a clause awkwardly across pages. */
-  .nda-clause {
+  .legal-clause {
     break-inside: avoid;
+  }
+
+  /* Highlighted Variables should print without the on-screen background. */
+  .legal-terms .coverpage_link,
+  .legal-terms .orderform_link,
+  .legal-terms .keyterms_link {
+    background: transparent;
+    color: inherit;
+    font-weight: 600;
   }
 
   @page {

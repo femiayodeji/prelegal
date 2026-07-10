@@ -1,12 +1,10 @@
-"""Pydantic models for the AI chat feature (PL-5).
+"""Pydantic models for the multi-document AI chat (PL-6).
 
-``NdaData`` mirrors the frontend ``NdaData`` interface in ``frontend/lib/nda.ts``
-field-for-field (same names, same defaults) so the object round-trips between the
-browser, this API, and the LLM without any translation layer.
-
-The chat is stateless on the server: each request carries the full transcript so
-far plus the current document state; the LLM returns an updated document state
-and its next reply.
+The product supports every agreement in ``catalog.json``. Rather than a bespoke
+schema per document, a document in progress is represented generically: a chosen
+``documentType`` (a catalog filename) plus a flat list of collected fields. The
+AI decides which fields a given document needs (seeded from the template's
+Variables) and fills them in through conversation.
 """
 
 from __future__ import annotations
@@ -15,40 +13,40 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-TermKind = Literal["expires", "untilTerminated"]
-ConfidentialityKind = Literal["years", "perpetuity"]
+
+class CatalogDocument(BaseModel):
+    """A supported document, as advertised to the frontend and the model."""
+
+    name: str
+    filename: str
+    description: str
 
 
-class Party(BaseModel):
-    """A signing party on the NDA cover page."""
+class DocField(BaseModel):
+    """A single cover-page value collected from the user."""
 
-    company: str = ""
-    signatoryName: str = ""
-    title: str = ""
-    noticeAddress: str = ""
+    label: str
+    value: str = ""
 
 
-class NdaData(BaseModel):
-    """All user-editable Cover Page values (mirror of the frontend type)."""
+class DocumentState(BaseModel):
+    """A document in progress: which type, and the fields gathered so far.
 
-    partyOne: Party = Field(default_factory=Party)
-    partyTwo: Party = Field(default_factory=Party)
-    purpose: str = (
-        "Evaluating whether to enter into a business relationship with the "
-        "other party."
-    )
-    effectiveDate: str = ""
-    termKind: TermKind = "expires"
-    termYears: int = 1
-    confidentialityKind: ConfidentialityKind = "years"
-    confidentialityYears: int = 1
-    governingLaw: str = ""
-    jurisdiction: str = ""
-    modifications: str = ""
+    ``documentType`` is a catalog filename (e.g. ``"CSA.md"``) once the user has
+    settled on a document, or ``None`` while that is still being decided.
+    """
+
+    documentType: str | None = None
+    fields: list[DocField] = Field(default_factory=list)
 
 
 class ChatMessage(BaseModel):
-    """A single turn in the conversation transcript."""
+    """A single turn in the conversation transcript.
+
+    Roles are constrained to the two the client ever sends. This also prevents a
+    client from smuggling a ``system`` turn into the transcript, which would be
+    replayed into the LLM prompt as instructions.
+    """
 
     role: Literal["user", "assistant"]
     content: str
@@ -58,22 +56,22 @@ class ChatRequest(BaseModel):
     """Client payload: the transcript so far plus the current document state."""
 
     messages: list[ChatMessage]
-    data: NdaData = Field(default_factory=NdaData)
+    doc: DocumentState = Field(default_factory=DocumentState)
 
 
 class AssistantTurn(BaseModel):
     """Structured output returned by the LLM for one assistant turn.
 
-    ``reply`` is the natural-language message shown in the chat; ``data`` is the
+    ``reply`` is the natural-language message shown in the chat; ``doc`` is the
     full, updated document state reflecting everything gathered so far.
     """
 
     reply: str
-    data: NdaData
+    doc: DocumentState
 
 
 class ChatResponse(BaseModel):
     """API response: the assistant's reply and the updated document state."""
 
     reply: str
-    data: NdaData
+    doc: DocumentState

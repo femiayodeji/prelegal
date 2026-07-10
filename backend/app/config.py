@@ -42,3 +42,8 @@ def resolve_static_dir() -> Path | None:
 # SQLite database path. The database is a throwaway that is recreated from
 # scratch on every startup, so an in-container path is fine.
 DATABASE_PATH = Path(os.environ.get("PRELEGAL_DB_PATH", str(BACKEND_DIR / "prelegal.db")))
+
+# Legal document catalog + templates. These live at the repo root in local dev
+# and are copied into the image (see Dockerfile), so both are env-overridable.
+CATALOG_PATH = Path(os.environ.get("PRELEGAL_CATALOG_PATH", str(PROJECT_ROOT / "catalog.json")))
+TEMPLATES_DIR = Path(os.environ.get("PRELEGAL_TEMPLATES_DIR", str(PROJECT_ROOT / "templates")))
