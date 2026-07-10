@@ -3,12 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { logIn } from "@/lib/auth";
+import { signUp } from "@/lib/auth";
 import AuthLayout, { authInputClass, AuthSubmit } from "@/components/AuthLayout";
 
-/** Real sign-in screen: authenticates against the backend and enters the app. */
-export default function LoginScreen() {
+/** Sign-up screen: registers a new account and enters the platform. */
+export default function SignupScreen() {
   const router = useRouter();
+  const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -19,17 +20,33 @@ export default function LoginScreen() {
     setError(null);
     setBusy(true);
     try {
-      await logIn(email, password);
+      await signUp(email, password, displayName);
       router.push("/");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign in failed.");
+      setError(err instanceof Error ? err.message : "Sign up failed.");
       setBusy(false);
     }
   };
 
   return (
-    <AuthLayout title="Welcome back" subtitle="Sign in to draft your agreements.">
+    <AuthLayout
+      title="Create your account"
+      subtitle="Start drafting agreements in minutes."
+    >
       <form onSubmit={handleSubmit} className="space-y-4">
+        <label className="block space-y-1">
+          <span className="block text-sm font-medium text-slate-700">
+            Name <span className="text-slate-400">(optional)</span>
+          </span>
+          <input
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="Ada Lovelace"
+            className={authInputClass}
+          />
+        </label>
+
         <label className="block space-y-1">
           <span className="block text-sm font-medium text-slate-700">Email</span>
           <input
@@ -49,9 +66,10 @@ export default function LoginScreen() {
           <input
             type="password"
             required
+            minLength={8}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
+            placeholder="At least 8 characters"
             className={authInputClass}
           />
         </label>
@@ -62,13 +80,13 @@ export default function LoginScreen() {
           </p>
         )}
 
-        <AuthSubmit busy={busy}>Sign in</AuthSubmit>
+        <AuthSubmit busy={busy}>Create account</AuthSubmit>
       </form>
 
       <p className="mt-6 text-center text-sm text-brand-gray">
-        New to Prelegal?{" "}
-        <Link href="/signup" className="font-medium text-brand-blue hover:underline">
-          Create an account
+        Already have an account?{" "}
+        <Link href="/login" className="font-medium text-brand-blue hover:underline">
+          Sign in
         </Link>
       </p>
     </AuthLayout>

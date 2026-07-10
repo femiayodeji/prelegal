@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 
 class CatalogDocument(BaseModel):
@@ -75,3 +75,54 @@ class ChatResponse(BaseModel):
 
     reply: str
     doc: DocumentState
+
+
+# --- Authentication -------------------------------------------------------
+
+
+class SignupRequest(BaseModel):
+    """Sign-up payload."""
+
+    email: EmailStr
+    password: str = Field(min_length=8)
+    displayName: str | None = None
+
+
+class LoginRequest(BaseModel):
+    """Sign-in payload."""
+
+    email: EmailStr
+    password: str
+
+
+class UserOut(BaseModel):
+    """The authenticated user, as returned to the frontend."""
+
+    email: str
+    displayName: str | None = None
+
+
+# --- Saved documents ------------------------------------------------------
+
+
+class SavedDocumentIn(BaseModel):
+    """Payload to create or update a saved document."""
+
+    documentType: str
+    title: str = Field(min_length=1)
+    fields: list[DocField] = Field(default_factory=list)
+
+
+class SavedDocumentSummary(BaseModel):
+    """A saved document as shown in the 'My Documents' list."""
+
+    id: int
+    documentType: str
+    title: str
+    updatedAt: str
+
+
+class SavedDocumentOut(SavedDocumentSummary):
+    """A saved document with its collected fields, for reopening."""
+
+    fields: list[DocField]

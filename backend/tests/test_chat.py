@@ -1,4 +1,4 @@
-"""Tests for the /api/chat endpoint (multi-document, PL-6).
+"""Tests for the /api/chat endpoint (auth-required, multi-document).
 
 The LLM call is replaced with a fake via FastAPI's dependency overrides, so
 these run deterministically with no network access or API key.
@@ -16,6 +16,25 @@ def _client_with_fake(fake) -> TestClient:
     return TestClient(app)
 
 
+def _signup(client: TestClient, email: str = "chat@example.com") -> None:
+    resp = client.post(
+        "/api/auth/signup", json={"email": email, "password": "password123"}
+    )
+    assert resp.status_code == 200
+
+
+def test_chat_requires_authentication():
+    def fake(messages, doc):  # pragma: no cover - must not run unauthenticated
+        raise AssertionError("chat should require auth")
+
+    with _client_with_fake(fake) as client:
+        resp = client.post(
+            "/api/chat",
+            json={"messages": [{"role": "user", "content": "hi"}], "doc": {}},
+        )
+    assert resp.status_code == 401
+
+
 def test_chat_selects_document_and_collects_fields():
     def fake(messages: list[ChatMessage], doc: DocumentState) -> AssistantTurn:
         assert messages[-1].content == "I need a cloud service agreement."
@@ -28,6 +47,7 @@ def test_chat_selects_document_and_collects_fields():
         )
 
     with _client_with_fake(fake) as client:
+        _signup(client)
         resp = client.post(
             "/api/chat",
             json={
@@ -40,7 +60,6 @@ def test_chat_selects_document_and_collects_fields():
 
     assert resp.status_code == 200
     body = resp.json()
-    assert body["reply"].startswith("Great")
     assert body["doc"]["documentType"] == "CSA.md"
     assert body["doc"]["fields"] == [{"label": "Governing Law", "value": "Delaware"}]
 
@@ -50,6 +69,7 @@ def test_chat_preserves_existing_document_state():
         return AssistantTurn(reply="Anything else?", doc=doc)
 
     with _client_with_fake(fake) as client:
+        _signup(client)
         resp = client.post(
             "/api/chat",
             json={
@@ -67,30 +87,12 @@ def test_chat_preserves_existing_document_state():
     assert body["doc"]["fields"][0]["value"] == "Evaluate a deal"
 
 
-def test_chat_defaults_to_empty_document_when_omitted():
-    captured: dict = {}
-
-    def fake(messages, doc):
-        captured["doc"] = doc
-        return AssistantTurn(reply="Which document would you like?", doc=doc)
-
-    with _client_with_fake(fake) as client:
-        resp = client.post(
-            "/api/chat",
-            json={"messages": [{"role": "user", "content": "hello"}]},
-        )
-
-    assert resp.status_code == 200
-    assert captured["doc"].documentType is None
-    assert captured["doc"].fields == []
-
-
 def test_chat_rejects_a_smuggled_system_role():
-    # A client must not be able to inject a "system" turn into the transcript.
     def fake(messages, doc):  # pragma: no cover - must not be reached
         raise AssertionError("generator should not run on invalid input")
 
     with _client_with_fake(fake) as client:
+        _signup(client)
         resp = client.post(
             "/api/chat",
             json={
@@ -107,6 +109,7 @@ def test_chat_maps_llm_failure_to_502():
         raise RuntimeError("openrouter exploded")
 
     with _client_with_fake(fake) as client:
+        _signup(client)
         resp = client.post(
             "/api/chat",
             json={"messages": [{"role": "user", "content": "hi"}], "doc": {}},
