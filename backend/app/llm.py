@@ -11,6 +11,8 @@ a fake without any network calls or API key.
 
 from __future__ import annotations
 
+import re
+
 from litellm import completion
 
 from .schemas import AssistantTurn, ChatMessage, NdaData
@@ -28,6 +30,10 @@ Your job is to hold a friendly, freeform conversation that gathers the \
 information needed to fill in the NDA's Cover Page, and to keep the document \
 state up to date as you learn each detail.
 
+You produce two separate things each turn: `reply` (the chat message the user \
+reads) and `data` (the machine-readable document state). They have very \
+different rules — keep them strictly separate.
+
 The document has exactly these fields (this is the JSON shape of `data`):
 - partyOne / partyTwo: each an object with `company`, `signatoryName`, \
 `title`, `noticeAddress` (email or postal address for legal notices).
@@ -43,25 +49,50 @@ or "perpetuity" (lasts indefinitely).
 - jurisdiction: the courts' location, e.g. "New Castle, Delaware".
 - modifications: any changes to the standard terms; usually empty.
 
-Rules for the conversation:
-- Ask about one or two related fields at a time; do not interrogate with a long \
-list. Keep replies short and conversational.
+Rules for `reply` (the ONLY thing the user sees):
+- Write short, warm, plain-language prose. Ask about one or two related fields \
+at a time; never interrogate with a long checklist.
+- NEVER put JSON, code blocks, backticks, field names, or a dump of the \
+document into `reply`. The filled-in document is shown to the user separately \
+(rendered from `data`), so you never need to display it or repeat it back.
+- If you want to confirm what you captured, say it naturally in prose \
+(e.g. "Got it — Acme Inc and Globex LLC as the two parties."), not as a list of \
+fields or a data structure.
 - Only ask about information that is still missing or unclear. Acknowledge what \
 the user just told you.
+- When you believe every field is filled in as well as it can be, say so and \
+invite the user to download the PDF or make changes.
+
+Rules for `data` (machine-readable; the user never sees it as raw text):
 - Infer sensible values when the user is clearly implying them (e.g. map a \
 company's home state to governingLaw), but never invent party names, emails, or \
 dates the user has not given.
 - Convert dates the user says in plain language into `YYYY-MM-DD`.
-- When you believe every field is filled in as well as it can be, say so and \
-invite the user to download the PDF or make changes.
-
-Rules for `data` in every response:
 - Return the COMPLETE, updated document state every time, not just the changed \
 fields. Carry over everything already known.
 - Never blank out a field the user previously provided.
 - Leave unknown text fields as empty strings; keep the enum/number fields at \
 their current values until the user gives you a reason to change them.
 """
+
+
+# Matches a fenced code block (```...```), with or without a language tag.
+_CODE_FENCE_RE = re.compile(r"```.*?```", re.DOTALL)
+
+
+def _clean_reply(reply: str) -> str:
+    """Strip anything the model shouldn't have put in the chat reply.
+
+    The document is shown to the user separately (rendered from ``data``), so raw
+    JSON or code fences never belong in the conversational ``reply``. Prompting
+    handles this most of the time; this is a cheap backstop for the times it
+    doesn't. If stripping leaves the reply empty, fall back to a neutral prompt
+    so the user is never shown a blank message.
+    """
+    cleaned = _CODE_FENCE_RE.sub("", reply)
+    # Collapse blank lines left where a block was removed.
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+    return cleaned or "Got it. What would you like to add or change next?"
 
 
 def _to_openai_messages(
@@ -92,4 +123,6 @@ def generate_turn(history: list[ChatMessage], data: NdaData) -> AssistantTurn:
         extra_body=EXTRA_BODY,
     )
     content = response.choices[0].message.content
-    return AssistantTurn.model_validate_json(content)
+    turn = AssistantTurn.model_validate_json(content)
+    turn.reply = _clean_reply(turn.reply)
+    return turn
