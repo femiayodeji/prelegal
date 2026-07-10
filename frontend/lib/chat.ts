@@ -1,11 +1,11 @@
-// Client for the AI chat backend (PL-5).
+// Client for the AI chat backend (PL-6).
 //
 // The frontend is a static export with no server of its own, so the LLM call
 // lives in FastAPI (which holds the API key). Each turn is a stateless
 // round-trip: we POST the full transcript plus the current document state and
 // receive the assistant's reply and the updated document state.
 
-import { NdaData } from "@/lib/nda";
+import { DocumentState } from "@/lib/documents";
 
 /** A single turn in the conversation transcript. */
 export interface ChatMessage {
@@ -16,7 +16,7 @@ export interface ChatMessage {
 /** Shape of the `/api/chat` response. */
 export interface ChatResponse {
   reply: string;
-  data: NdaData;
+  doc: DocumentState;
 }
 
 /**
@@ -26,12 +26,12 @@ export interface ChatResponse {
  */
 export async function sendChat(
   messages: ChatMessage[],
-  data: NdaData,
+  doc: DocumentState,
 ): Promise<ChatResponse> {
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages, data }),
+    body: JSON.stringify({ messages, doc }),
   });
 
   if (!res.ok) {

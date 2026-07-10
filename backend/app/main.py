@@ -18,10 +18,17 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException
 
 from starlette.staticfiles import StaticFiles
 
-from . import llm
+from . import documents, llm
 from .config import resolve_static_dir
 from .db import init_db
-from .schemas import AssistantTurn, ChatMessage, ChatRequest, ChatResponse, NdaData
+from .schemas import (
+    AssistantTurn,
+    CatalogDocument,
+    ChatMessage,
+    ChatRequest,
+    ChatResponse,
+    DocumentState,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +36,7 @@ api = APIRouter(prefix="/api")
 
 # The chat's LLM call sits behind this alias so it can be overridden in tests
 # (via ``app.dependency_overrides``) with a fake that needs no network or key.
-TurnGenerator = Callable[[list[ChatMessage], NdaData], AssistantTurn]
+TurnGenerator = Callable[[list[ChatMessage], DocumentState], AssistantTurn]
 
 
 def get_turn_generator() -> TurnGenerator:
@@ -43,12 +50,29 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@api.get("/documents", response_model=list[CatalogDocument])
+def get_documents() -> list[CatalogDocument]:
+    """List the legal documents a user can create."""
+    return documents.list_documents()
+
+
+@api.get("/documents/{filename}")
+def get_document_markdown(filename: str) -> dict[str, str]:
+    """Return a supported document's Standard Terms markdown, for the preview."""
+    try:
+        markdown = documents.get_markdown(filename)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Unknown document.")
+    doc = documents.get_document(filename)
+    return {"name": doc.name, "filename": filename, "markdown": markdown}
+
+
 @api.post("/chat", response_model=ChatResponse)
 def chat(
     request: ChatRequest,
     generate_turn: TurnGenerator = Depends(get_turn_generator),
 ) -> ChatResponse:
-    """Advance the NDA-drafting conversation by one assistant turn.
+    """Advance the document-drafting conversation by one assistant turn.
 
     Stateless: the client sends the full transcript and current document state,
     and receives the assistant's reply plus the updated document state.
@@ -58,14 +82,14 @@ def chat(
     to the client.
     """
     try:
-        turn = generate_turn(request.messages, request.data)
+        turn = generate_turn(request.messages, request.doc)
     except Exception:  # noqa: BLE001 — any LLM failure maps to the same response.
         logger.exception("Chat turn generation failed")
         raise HTTPException(
             status_code=502,
             detail="The assistant is temporarily unavailable. Please try again.",
         )
-    return ChatResponse(reply=turn.reply, data=turn.data)
+    return ChatResponse(reply=turn.reply, doc=turn.doc)
 
 
 @asynccontextmanager

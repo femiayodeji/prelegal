@@ -1,0 +1,136 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { marked } from "marked";
+import { DocumentState, fetchDocumentMarkdown } from "@/lib/documents";
+
+/** Display helper: returns the value or a blank underline placeholder. */
+function orBlank(value: string): string {
+  return value.trim() ? value.trim() : "___________________";
+}
+
+/** One labelled field row on the cover page. */
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="legal-clause mb-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
+      <p className="whitespace-pre-wrap text-slate-900">{orBlank(value)}</p>
+    </div>
+  );
+}
+
+/** A generic signature block; the physical details are filled in on paper. */
+function SignatureBlock({ label }: { label: string }) {
+  const rows = ["Signature", "Print Name", "Title", "Company", "Date"];
+  return (
+    <div className="legal-clause rounded border border-slate-300 p-4">
+      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
+      <dl className="space-y-2 text-sm">
+        {rows.map((term) => (
+          <div key={term} className="flex gap-2">
+            <dt className="w-28 shrink-0 text-slate-500">{term}</dt>
+            <dd className="flex-1 border-b border-slate-300" />
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+/**
+ * Renders the document in progress: a cover page generated from the collected
+ * fields, followed by the document's Standard Terms rendered from its markdown
+ * template. Carries the `.legal-document` class so the print stylesheet can
+ * isolate it for PDF export. Shows a placeholder until a document is chosen.
+ */
+export default function DocumentPreview({ doc }: { doc: DocumentState }) {
+  const [name, setName] = useState("");
+  const [termsHtml, setTermsHtml] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const type = doc.documentType;
+    if (!type) {
+      setName("");
+      setTermsHtml("");
+      setError(null);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetchDocumentMarkdown(type)
+      .then((d) => {
+        if (cancelled) return;
+        setName(d.name);
+        setTermsHtml(marked.parse(d.markdown, { async: false }));
+      })
+      .catch(() => {
+        if (!cancelled) setError("Couldn't load the document text.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [doc.documentType]);
+
+  if (!doc.documentType) {
+    return (
+      <div className="flex h-[32rem] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
+        Your document will appear here as you chat. Tell the assistant which
+        agreement you need to get started.
+      </div>
+    );
+  }
+
+  return (
+    <article className="legal-document mx-auto max-w-[8.5in] bg-white p-10 text-[15px] leading-relaxed text-slate-900 shadow-sm print:shadow-none">
+      <header className="mb-6 border-b border-slate-200 pb-4">
+        <h1 className="text-2xl font-bold">{name || "Legal Agreement"}</h1>
+        <p className="mt-1 text-sm text-slate-500">Cover Page</p>
+      </header>
+
+      {doc.fields.length > 0 ? (
+        doc.fields.map((f) => (
+          <Field key={f.label} label={f.label} value={f.value} />
+        ))
+      ) : (
+        <p className="mb-4 text-sm text-slate-500">
+          The assistant will fill in the cover-page details here as you provide
+          them.
+        </p>
+      )}
+
+      <p className="legal-clause mb-4 mt-6 text-sm text-slate-600">
+        By signing this Cover Page, each party agrees to the terms below as of
+        the Effective Date.
+      </p>
+
+      <div className="mb-8 grid gap-4 sm:grid-cols-2">
+        <SignatureBlock label="Party 1" />
+        <SignatureBlock label="Party 2" />
+      </div>
+
+      <div className="legal-clause border-t border-slate-200 pt-6">
+        <h2 className="mb-4 text-xl font-bold">Standard Terms</h2>
+        {loading && <p className="text-sm text-slate-500">Loading document…</p>}
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        {termsHtml && (
+          <div
+            className="legal-terms"
+            // The template markdown is trusted content from our own backend,
+            // not user input; field values are rendered as escaped React text.
+            dangerouslySetInnerHTML={{ __html: termsHtml }}
+          />
+        )}
+      </div>
+    </article>
+  );
+}

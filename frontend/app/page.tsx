@@ -1,13 +1,13 @@
 import PlatformShell from "@/components/PlatformShell";
-import NdaWorkspace from "@/components/NdaWorkspace";
+import DocWorkspace from "@/components/DocWorkspace";
 
-// The platform landing page: a guarded app shell wrapping the (unchanged)
-// Mutual NDA creator. PlatformShell handles the client-side login gate; the
-// NdaWorkspace island holds the interactive form state.
+// The platform landing page: a guarded app shell wrapping the legal document
+// creator. PlatformShell handles the client-side login gate; the DocWorkspace
+// island holds the interactive chat + document state.
 export default function Home() {
   return (
     <PlatformShell>
-      <NdaWorkspace />
+      <DocWorkspace />
     </PlatformShell>
   );
 }

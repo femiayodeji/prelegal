@@ -1,22 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import NdaChat from "@/components/NdaChat";
-import NdaDocument from "@/components/NdaDocument";
-import { defaultNdaData, NdaData } from "@/lib/nda";
+import DocChat from "@/components/DocChat";
+import DocumentPreview from "@/components/DocumentPreview";
+import { DocumentState, emptyDocument } from "@/lib/documents";
 
 /**
  * The interactive client island: holds the document state, renders the live
- * preview, and triggers the PDF export. The state is now driven by a freeform
- * AI chat (NdaChat) rather than a manual form. Keeping this in its own
- * component lets the surrounding page stay a server component.
+ * preview, and triggers the PDF export. The state is driven by a freeform AI
+ * chat (DocChat) that first helps the user choose a document, then fills it in.
  */
-export default function NdaWorkspace() {
-  const [data, setData] = useState<NdaData>(defaultNdaData);
+export default function DocWorkspace() {
+  const [doc, setDoc] = useState<DocumentState>(emptyDocument);
 
   // "Download" a PDF by opening the browser's print dialog. The print
-  // stylesheet (globals.css) isolates the `.nda-document` element, so the
-  // user gets a clean, form-free document they can save as PDF.
+  // stylesheet (globals.css) isolates the `.legal-document` element, so the
+  // user gets a clean, chat-free document they can save as PDF.
   const handleDownload = () => window.print();
 
   return (
@@ -24,11 +23,11 @@ export default function NdaWorkspace() {
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between print:hidden">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">
-            Mutual NDA Creator
+            Legal Document Creator
           </h1>
           <p className="mt-1 text-sm text-slate-600">
-            Chat with the assistant on the left to fill in the details, then
-            download your completed Mutual Non-Disclosure Agreement.
+            Chat with the assistant to choose an agreement and fill in the
+            details, then download your completed document.
           </p>
         </div>
         <button
@@ -44,9 +43,9 @@ export default function NdaWorkspace() {
         {/* Chat pane — hidden when printing. */}
         <section className="print:hidden">
           <h2 className="mb-4 text-lg font-semibold text-slate-800">
-            Agreement assistant
+            Document assistant
           </h2>
-          <NdaChat data={data} onChange={setData} />
+          <DocChat doc={doc} onChange={setDoc} />
         </section>
 
         {/* Live document preview — becomes the printable output. */}
@@ -54,7 +53,7 @@ export default function NdaWorkspace() {
           <h2 className="mb-4 text-lg font-semibold text-slate-800 print:hidden">
             Preview
           </h2>
-          <NdaDocument data={data} />
+          <DocumentPreview doc={doc} />
         </section>
       </div>
     </>
