@@ -9,9 +9,17 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 # Repository layout (this file lives at backend/app/config.py).
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 PROJECT_ROOT = BACKEND_DIR.parent
+
+# Load secrets (e.g. OPENROUTER_API_KEY, used by the AI chat) from the project
+# .env in local development. In the Docker image the .env is never baked in — the
+# variables are provided at runtime — and `load_dotenv` is a harmless no-op when
+# the file is absent. Existing environment variables always take precedence.
+load_dotenv(PROJECT_ROOT / ".env")
 
 # Directory holding the statically-exported Next.js frontend (`next build` with
 # `output: 'export'`). In the Docker image the export is copied next to the

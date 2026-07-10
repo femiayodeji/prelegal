@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import NdaForm from "@/components/NdaForm";
+import NdaChat from "@/components/NdaChat";
 import NdaDocument from "@/components/NdaDocument";
 import { defaultNdaData, NdaData } from "@/lib/nda";
 
 /**
- * The interactive client island: holds the form state, renders the live
- * document preview, and triggers the PDF export. Keeping this in its own
+ * The interactive client island: holds the document state, renders the live
+ * preview, and triggers the PDF export. The state is now driven by a freeform
+ * AI chat (NdaChat) rather than a manual form. Keeping this in its own
  * component lets the surrounding page stay a server component.
  */
 export default function NdaWorkspace() {
@@ -26,8 +27,8 @@ export default function NdaWorkspace() {
             Mutual NDA Creator
           </h1>
           <p className="mt-1 text-sm text-slate-600">
-            Fill in the details on the left and download your completed Mutual
-            Non-Disclosure Agreement.
+            Chat with the assistant on the left to fill in the details, then
+            download your completed Mutual Non-Disclosure Agreement.
           </p>
         </div>
         <button
@@ -40,14 +41,12 @@ export default function NdaWorkspace() {
       </div>
 
       <div className="grid gap-8 lg:grid-cols-2">
-        {/* Form pane — hidden when printing. */}
+        {/* Chat pane — hidden when printing. */}
         <section className="print:hidden">
-          <div className="rounded-xl bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold text-slate-800">
-              Agreement details
-            </h2>
-            <NdaForm data={data} onChange={setData} />
-          </div>
+          <h2 className="mb-4 text-lg font-semibold text-slate-800">
+            Agreement assistant
+          </h2>
+          <NdaChat data={data} onChange={setData} />
         </section>
 
         {/* Live document preview — becomes the printable output. */}

@@ -11,20 +11,47 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Callable
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, Depends, FastAPI
+
 from starlette.staticfiles import StaticFiles
 
+from . import llm
 from .config import resolve_static_dir
 from .db import init_db
+from .schemas import AssistantTurn, ChatMessage, ChatRequest, ChatResponse, NdaData
 
 api = APIRouter(prefix="/api")
+
+# The chat's LLM call sits behind this alias so it can be overridden in tests
+# (via ``app.dependency_overrides``) with a fake that needs no network or key.
+TurnGenerator = Callable[[list[ChatMessage], NdaData], AssistantTurn]
+
+
+def get_turn_generator() -> TurnGenerator:
+    """Provide the function that turns a transcript + state into an assistant turn."""
+    return llm.generate_turn
 
 
 @api.get("/health")
 def health() -> dict[str, str]:
     """Liveness probe used by the start scripts and container health checks."""
     return {"status": "ok"}
+
+
+@api.post("/chat", response_model=ChatResponse)
+def chat(
+    request: ChatRequest,
+    generate_turn: TurnGenerator = Depends(get_turn_generator),
+) -> ChatResponse:
+    """Advance the NDA-drafting conversation by one assistant turn.
+
+    Stateless: the client sends the full transcript and current document state,
+    and receives the assistant's reply plus the updated document state.
+    """
+    turn = generate_turn(request.messages, request.data)
+    return ChatResponse(reply=turn.reply, data=turn.data)
 
 
 @asynccontextmanager
