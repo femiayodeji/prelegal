@@ -5,6 +5,14 @@ import fs from "node:fs";
 const doc = ".nda-document";
 
 test.beforeEach(async ({ page }) => {
+  // The platform is gated by a (fake) login. Seed a session before any page
+  // script runs so the guard lets us straight into the NDA workspace.
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "prelegal.session",
+      JSON.stringify({ email: "e2e@prelegal.app" }),
+    );
+  });
   await page.goto("/");
 });
 

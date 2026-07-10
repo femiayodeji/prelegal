@@ -1,0 +1,26 @@
+# Keep the build context small and reproducible — deps are installed inside
+# the image, and build outputs are generated there.
+
+# Node / Next.js
+**/node_modules
+frontend/.next
+frontend/out
+frontend/test-results
+frontend/playwright-report
+frontend/e2e/artifacts
+
+# Python / uv
+**/.venv
+**/__pycache__
+**/*.py[cod]
+backend/prelegal.db
+**/.pytest_cache
+
+# VCS & tooling
+.git
+.gitignore
+**/.DS_Store
+
+# Secrets — provided at runtime, never baked into the image
+.env
+.env.*
