@@ -9,6 +9,8 @@ Variables) and fills them in through conversation.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -39,9 +41,14 @@ class DocumentState(BaseModel):
 
 
 class ChatMessage(BaseModel):
-    """A single turn in the conversation transcript."""
+    """A single turn in the conversation transcript.
 
-    role: str  # "user" | "assistant"
+    Roles are constrained to the two the client ever sends. This also prevents a
+    client from smuggling a ``system`` turn into the transcript, which would be
+    replayed into the LLM prompt as instructions.
+    """
+
+    role: Literal["user", "assistant"]
     content: str
 
 
