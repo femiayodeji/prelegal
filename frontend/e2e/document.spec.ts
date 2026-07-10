@@ -98,6 +98,27 @@ test("choosing a document renders its terms and collected fields", async ({
   await expect(document).toContainText("Provider will provide the Cloud Service");
 });
 
+test("assistant markdown is formatted and the composer keeps focus", async ({
+  page,
+}) => {
+  await mockChat(page, "Here's what's **important**:\n\n- Parties\n- Governing law", {
+    documentType: "CSA.md",
+    fields: [],
+  });
+  await page.goto("/");
+
+  const composer = page.getByLabel("Message the assistant");
+  await sendMessage(page, "what do you need?");
+
+  // Markdown is rendered: bold becomes <strong>, the list becomes <li>s.
+  const conversation = page.getByLabel("Conversation");
+  await expect(conversation.locator("strong", { hasText: "important" })).toBeVisible();
+  await expect(conversation.locator("li")).toHaveCount(2);
+
+  // The composer regains focus after the exchange so the user can keep typing.
+  await expect(composer).toBeFocused();
+});
+
 test("an unsupported request keeps the preview empty", async ({ page }) => {
   // The assistant declines and offers a closest match; documentType stays null.
   await mockChat(

@@ -3,6 +3,41 @@
 @tailwind utilities;
 
 /*
+ * Assistant chat bubbles render markdown (bold, bullet/numbered lists). Give
+ * those elements sensible spacing inside the compact bubble.
+ */
+.chat-prose > :first-child {
+  margin-top: 0;
+}
+.chat-prose > :last-child {
+  margin-bottom: 0;
+}
+.chat-prose p {
+  margin: 0.5rem 0;
+}
+.chat-prose strong {
+  font-weight: 600;
+}
+.chat-prose ul,
+.chat-prose ol {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+}
+.chat-prose ul {
+  list-style: disc;
+}
+.chat-prose ol {
+  list-style: decimal;
+}
+.chat-prose li {
+  margin: 0.2rem 0;
+}
+.chat-prose a {
+  color: #209dd7;
+  text-decoration: underline;
+}
+
+/*
  * Rendered Standard Terms. Templates are markdown with inline `<span>` markers
  * for section headings and highlighted fill-in "Variables". Give those markers
  * sensible typography and make the highlighted Variables visually distinct.

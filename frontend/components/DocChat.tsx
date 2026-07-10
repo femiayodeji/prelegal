@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { marked } from "marked";
 import { ChatMessage, sendChat } from "@/lib/chat";
 import { DocumentState } from "@/lib/documents";
+
+/** Render an assistant message's markdown (bold, lists, etc.) to HTML. */
+function renderMarkdown(content: string): string {
+  return marked.parse(content, { async: false });
+}
 
 interface Props {
   doc: DocumentState;
@@ -30,11 +36,18 @@ export default function DocChat({ doc, onChange }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Keep the newest message in view as the conversation grows.
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages, loading]);
+
+  // Keep the composer focused so the user can keep typing — including after a
+  // send re-enables the (disabled-while-loading) textarea and on first load.
+  useEffect(() => {
+    if (!loading) inputRef.current?.focus();
+  }, [loading]);
 
   const send = async () => {
     const text = input.trim();
@@ -80,15 +93,18 @@ export default function DocChat({ doc, onChange }: Props) {
             key={i}
             className={m.role === "user" ? "flex justify-end" : "flex justify-start"}
           >
-            <div
-              className={
-                m.role === "user"
-                  ? "max-w-[85%] whitespace-pre-wrap rounded-2xl bg-brand-blue px-4 py-2 text-sm text-white"
-                  : "max-w-[85%] whitespace-pre-wrap rounded-2xl bg-slate-100 px-4 py-2 text-sm text-slate-800"
-              }
-            >
-              {m.content}
-            </div>
+            {m.role === "user" ? (
+              <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-brand-blue px-4 py-2 text-sm text-white">
+                {m.content}
+              </div>
+            ) : (
+              // Assistant replies are markdown (bold, bullet lists); render them.
+              // Content is our own model's output constrained by the prompt.
+              <div
+                className="chat-prose max-w-[85%] rounded-2xl bg-slate-100 px-4 py-2 text-sm text-slate-800"
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(m.content) }}
+              />
+            )}
           </div>
         ))}
 
@@ -110,6 +126,7 @@ export default function DocChat({ doc, onChange }: Props) {
       <div className="border-t border-slate-200 p-4">
         <div className="flex items-end gap-2">
           <textarea
+            ref={inputRef}
             className="flex-1 resize-none rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue"
             rows={2}
             value={input}
