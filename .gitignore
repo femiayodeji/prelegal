@@ -50,6 +50,11 @@ dmypy.json
 *.pid
 *.sock
 
+# SQLite (throwaway database, recreated on startup)
+*.db
+*.sqlite
+*.sqlite3
+
 # ---------------------------------------------------------------------------
 # Node / Next.js (frontend)
 # ---------------------------------------------------------------------------

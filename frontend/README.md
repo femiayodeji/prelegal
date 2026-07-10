@@ -8,11 +8,17 @@ confidentiality period, governing law, and jurisdiction). The app renders a live
 preview of the filled Common Paper Mutual NDA — a completed Cover Page followed
 by the standard terms — and lets the user download it as a PDF.
 
+Since [PL-4](https://femi-ayodeji.atlassian.net/browse/PL-4) the app is part of the
+V1 platform: it is reached through a **fake login** (`/login`) and wrapped in a
+branded app shell. It is built as a **static export** (`next build` → `out/`) and
+served by the FastAPI backend. See the [root README](../README.md) for the full
+stack and Docker instructions.
+
 ## Tech
 
-- Next.js (App Router) + TypeScript
+- Next.js (App Router, static export) + TypeScript
 - Tailwind CSS
-- Fully client-side; no backend required
+- Fully client-side; the fake login is a client-side gate (localStorage)
 
 ## Getting started
 
@@ -48,7 +54,11 @@ document-only PDF.
 
 | Path | Purpose |
 | --- | --- |
-| `app/page.tsx` | Split layout: form + live preview + Download button |
+| `app/login/page.tsx` | Fake login screen (any details enter the platform) |
+| `app/page.tsx` | Guarded platform shell wrapping the NDA workspace |
+| `components/LoginScreen.tsx` | Branded fake login form |
+| `components/PlatformShell.tsx` | App header/nav + client-side login guard |
+| `lib/auth.ts` | Client-side fake-session helpers (localStorage) |
 | `components/NdaForm.tsx` | Controlled form for the cover-page fields |
 | `components/NdaDocument.tsx` | Renders the filled cover page + standard terms |
 | `lib/nda.ts` | Types, defaults, and the embedded Standard Terms text |
