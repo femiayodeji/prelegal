@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git checkout *)",
+      "Bash(git merge *)",
+      "Bash(git push *)",
+      "Bash(git fetch *)",
+      "Bash(git pull *)",
+      "Bash(git check-ignore *)",
+      "Bash(npm run *)",
+      "Bash(npm test *)",
+      "Bash(npx playwright *)",
+      "Bash(uv sync *)",
+      "Bash(uv run *)",
+      "Bash(docker build *)",
+      "Bash(docker pull *)",
+      "Bash(chmod +x scripts/*.sh)",
+      "mcp__github__create_pull_request",
+      "mcp__github__get_file_contents",
+      "mcp__github__search_repositories",
+      "mcp__atlassian__getJiraIssue",
+      "mcp__atlassian__getTransitionsForJiraIssue",
+      "mcp__atlassian__transitionJiraIssue",
+      "mcp__atlassian__getAccessibleAtlassianResources"
+    ]
+  }
+}

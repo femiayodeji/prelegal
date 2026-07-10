@@ -2,13 +2,40 @@
 
 ## Overview
 
-This is a SaaS product to allow users to draft legal agreements based on templates in the templates directory.
-The user can carry out AI chat in order to establish what document they want and how to fill in the fields.
-The available documents are covered in the catalog.json file in the project root, included here:
+Prelegal is a SaaS product that lets users draft legal agreements based on the
+templates in the `templates/` directory. Users sign in, then hold a freeform AI
+chat that establishes which document they want and fills in its fields. The
+available documents are covered in the `catalog.json` file in the project root,
+included here:
 
 @catalog.json
 
-Before we start: the initial implementation is a frontend-only prototype that only supports the Mutual NDA document with no AI chat.
+The product is fully built (PL-4 → PL-7): real accounts, an AI chat that covers
+every supported document type, saved documents, and a professional UI.
+
+## Architecture (current state)
+
+- **Backend** (`backend/`, a `uv` + FastAPI project) serves the JSON API under
+  `/api` and the statically-exported frontend for everything else. Key modules:
+  - `main.py` — app factory, routes, and the auth/DB dependencies.
+  - `auth.py` — PBKDF2 password hashing + opaque cookie sessions.
+  - `store.py` — per-user saved-document CRUD (ownership-scoped).
+  - `documents.py` — loads `catalog.json` + templates and extracts each
+    template's fill-in "Variables".
+  - `llm.py` — the Cerebras chat integration (see AI design below).
+  - `db.py` / `config.py` — throwaway SQLite bootstrap and settings.
+- **Frontend** (`frontend/`, Next.js) is a **static export** (`output: export`)
+  with no server of its own — it is served by FastAPI. All server work
+  (LLM calls, auth, persistence) goes through the API. The document assistant
+  lives in `components/DocChat` + `DocumentPreview` + `DocWorkspace`.
+- **API surface**: `POST /api/auth/{signup,login,logout}` + `GET /api/auth/me`
+  (HttpOnly cookie session); `GET /api/documents[/{filename}]` (public catalog +
+  template markdown); `POST /api/chat` (auth-required); and
+  `GET/POST/PUT/DELETE /api/saved-documents[/{id}]` (auth-required, per-user).
+- **Auth model**: real sign up / sign in against the `users` table; passwords
+  hashed with stdlib PBKDF2-HMAC-SHA256; sessions are opaque tokens in an
+  HttpOnly cookie (not JWT — a single-container, reset-on-restart DB gains
+  nothing from statelessness, and opaque tokens are trivially revocable).
 
 ## Development process
 
@@ -29,8 +56,8 @@ There is an OPENROUTER_API_KEY in the .env file in the project root.
 The entire project should be packaged into a Docker container.  
 The backend should be in backend/ and be a uv project, using FastAPI.  
 The frontend should be in frontend/  
-The database should use SQLLite and be created from scratch each time the Docker container is brought up, allowing for a users table with sign up and sign in.  
-Consider statically building the frontend and serving it via FastAPI, if that will work.  
+The database uses SQLite and is created from scratch each time the Docker container is brought up. It holds the `users`, `sessions`, and `saved_documents` tables, so all accounts and saved documents reset when the server restarts.  
+The frontend is statically built and served via FastAPI.  
 There should be scripts in scripts/ for:  
 ```bash
 # Mac
@@ -46,6 +73,11 @@ scripts/start-windows.ps1
 scripts/stop-windows.ps1
 ```
 Backend available at http://localhost:8000
+
+The `OPENROUTER_API_KEY` is provided to the container at runtime from `.env`
+(`.env` is never baked into the image). Under WSL + Docker Desktop,
+`start-linux.sh` automatically works around the Windows credential helper
+(`credsStore: "desktop.exe"`) that otherwise breaks `docker build`.
 
 ## Color Scheme
 - Accent Yellow: `#ecad0a`
