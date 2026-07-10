@@ -56,14 +56,14 @@ async function sendMessage(page: Page, text: string) {
 }
 
 test.beforeEach(async ({ page }) => {
-  // Seed a (fake) session before any page script runs so the login guard lets
-  // us straight into the workspace.
-  await page.addInitScript(() => {
-    window.localStorage.setItem(
-      "prelegal.session",
-      JSON.stringify({ email: "e2e@prelegal.app" }),
-    );
-  });
+  // Stub the real session check so the login guard lets us into the workspace.
+  await page.route("**/api/auth/me", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ email: "e2e@prelegal.app", displayName: "E2E" }),
+    }),
+  );
   await mockDocuments(page);
 });
 
@@ -96,6 +96,37 @@ test("choosing a document renders its terms and collected fields", async ({
   await expect(document).toContainText("Delaware");
   // Standard Terms rendered from the markdown template.
   await expect(document).toContainText("Provider will provide the Cloud Service");
+  // The draft disclaimer is always present on the document.
+  await expect(document).toContainText("Draft — not legal advice.");
+});
+
+test("saving a document confirms and switches to Update", async ({ page }) => {
+  await mockChat(page, "All set!", {
+    documentType: "CSA.md",
+    fields: [{ label: "Provider Company", value: "Acme, Inc." }],
+  });
+  await page.route("**/api/saved-documents", (route) =>
+    route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: 1,
+        documentType: "CSA.md",
+        title: "Cloud Service Agreement — Acme, Inc.",
+        updatedAt: "2026-07-10 18:00:00",
+        fields: [{ label: "Provider Company", value: "Acme, Inc." }],
+      }),
+    }),
+  );
+  await page.goto("/");
+
+  await sendMessage(page, "cloud service agreement");
+  const save = page.getByRole("button", { name: "Save" });
+  await expect(save).toBeEnabled();
+  await save.click();
+
+  await expect(page.getByText("Saved to My documents.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Update" })).toBeVisible();
 });
 
 test("assistant markdown is formatted and the composer keeps focus", async ({

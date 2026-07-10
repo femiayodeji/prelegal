@@ -16,11 +16,11 @@ def test_init_db_creates_users_table(tmp_path):
                 "SELECT name FROM sqlite_master WHERE type='table'"
             )
         }
-        assert "users" in tables
+        assert {"users", "sessions", "saved_documents"} <= tables
 
-        # The users table has the expected foundation columns.
+        # The users table has the expected columns, including the password hash.
         columns = {row["name"] for row in conn.execute("PRAGMA table_info(users)")}
-        assert {"id", "email", "display_name", "created_at"} <= columns
+        assert {"id", "email", "display_name", "password_hash", "created_at"} <= columns
 
 
 def test_init_db_is_recreated_from_scratch(tmp_path):
@@ -28,7 +28,9 @@ def test_init_db_is_recreated_from_scratch(tmp_path):
 
     db.init_db(db_path)
     with closing(db.connect(db_path)) as conn:
-        conn.execute("INSERT INTO users (email) VALUES ('someone@example.com')")
+        conn.execute(
+            "INSERT INTO users (email, password_hash) VALUES ('someone@example.com', 'x')"
+        )
         conn.commit()
 
     # A fresh init wipes any previous data — the DB is throwaway.

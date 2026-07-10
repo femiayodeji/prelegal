@@ -1,36 +1,63 @@
-// Client-side "fake" authentication for the V1 foundation (PL-4).
+// Authentication client (PL-7).
 //
-// There is no real authentication yet: the login screen simply records that a
-// user has entered the platform in localStorage so the app shell can gate its
-// routes. This is deliberately a placeholder to be replaced by real sign
-// up / sign in against the backend `users` table later.
+// Real sign up / sign in against the FastAPI backend. The server keeps the
+// session in an HttpOnly cookie, so there is no token for JavaScript to store or
+// read — every request just needs to be same-origin (which it is, since FastAPI
+// serves this app). We only model the current user for the UI.
 
-const STORAGE_KEY = "prelegal.session";
-
-export interface Session {
+export interface User {
   email: string;
+  displayName: string | null;
 }
 
-/** Returns the current fake session, or null if the user hasn't "logged in". */
-export function getSession(): Session | null {
-  if (typeof window === "undefined") return null;
-  const raw = window.localStorage.getItem(STORAGE_KEY);
-  if (!raw) return null;
+/** Extract the backend's error message from a failed auth/API response. */
+async function errorMessage(res: Response, fallback: string): Promise<string> {
   try {
-    return JSON.parse(raw) as Session;
+    const body = await res.json();
+    if (typeof body?.detail === "string") return body.detail;
   } catch {
-    return null;
+    /* no JSON body */
   }
+  return fallback;
 }
 
-/** Records a fake session and returns it. Any email is accepted. */
-export function logIn(email: string): Session {
-  const session: Session = { email: email.trim() || "guest@prelegal.app" };
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-  return session;
+/** The signed-in user, or null if there is no valid session. */
+export async function getCurrentUser(): Promise<User | null> {
+  const res = await fetch("/api/auth/me", { credentials: "same-origin" });
+  if (res.status === 401) return null;
+  if (!res.ok) throw new Error(await errorMessage(res, "Failed to load session."));
+  return (await res.json()) as User;
 }
 
-/** Clears the fake session. */
-export function logOut(): void {
-  window.localStorage.removeItem(STORAGE_KEY);
+export async function signUp(
+  email: string,
+  password: string,
+  displayName?: string,
+): Promise<User> {
+  const res = await fetch("/api/auth/signup", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ email, password, displayName: displayName || null }),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "Sign up failed."));
+  return (await res.json()) as User;
+}
+
+export async function logIn(email: string, password: string): Promise<User> {
+  const res = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res, "Sign in failed."));
+  return (await res.json()) as User;
+}
+
+export async function logOut(): Promise<void> {
+  await fetch("/api/auth/logout", {
+    method: "POST",
+    credentials: "same-origin",
+  });
 }
