@@ -9,11 +9,12 @@ The database is recreated from scratch on startup via the lifespan handler.
 
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Callable
 
-from fastapi import APIRouter, Depends, FastAPI
+from fastapi import APIRouter, Depends, FastAPI, HTTPException
 
 from starlette.staticfiles import StaticFiles
 
@@ -21,6 +22,8 @@ from . import llm
 from .config import resolve_static_dir
 from .db import init_db
 from .schemas import AssistantTurn, ChatMessage, ChatRequest, ChatResponse, NdaData
+
+logger = logging.getLogger(__name__)
 
 api = APIRouter(prefix="/api")
 
@@ -49,8 +52,19 @@ def chat(
 
     Stateless: the client sends the full transcript and current document state,
     and receives the assistant's reply plus the updated document state.
+
+    Any failure in the LLM call (network, auth, or malformed output) is turned
+    into a clean 502 with a friendly message rather than leaking a raw traceback
+    to the client.
     """
-    turn = generate_turn(request.messages, request.data)
+    try:
+        turn = generate_turn(request.messages, request.data)
+    except Exception:  # noqa: BLE001 — any LLM failure maps to the same response.
+        logger.exception("Chat turn generation failed")
+        raise HTTPException(
+            status_code=502,
+            detail="The assistant is temporarily unavailable. Please try again.",
+        )
     return ChatResponse(reply=turn.reply, data=turn.data)
 
 

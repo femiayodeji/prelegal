@@ -70,6 +70,22 @@ def test_chat_preserves_existing_data_defaults():
     assert body["data"]["confidentialityKind"] == "years"
 
 
+def test_chat_maps_llm_failure_to_502():
+    # A failure inside the LLM call should become a clean 502 with a friendly
+    # message, not a raw 500 traceback.
+    def fake(messages, data):
+        raise RuntimeError("openrouter exploded")
+
+    with _client_with_fake(fake) as client:
+        resp = client.post(
+            "/api/chat",
+            json={"messages": [{"role": "user", "content": "hi"}], "data": {}},
+        )
+
+    assert resp.status_code == 502
+    assert "temporarily unavailable" in resp.json()["detail"]
+
+
 def test_chat_rejects_malformed_request():
     # A bad role should fail request validation before any LLM call.
     def fake(messages, data):  # pragma: no cover - must not be reached
